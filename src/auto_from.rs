@@ -18,6 +18,8 @@ struct MetaOpts {
 #[darling(default, attributes(convert_field))]
 struct FiledOpts {
     rename: String,
+    custom: String,
+    parse: bool,
     ignore: bool,
     wrap: bool,
     unwrap: bool,
@@ -73,7 +75,7 @@ impl DeriveIntoContext {
                     }
                 }
             }
-        }else {
+        } else {
             let struct_name = Ident::new(&format!("{}", name), name.span());
             let target_name = Ident::new(&format!("{}", self.attrs.into), name.span());
 
@@ -90,10 +92,9 @@ impl DeriveIntoContext {
                 }
             }
         }
-
     }
 
-        fn gen_from_assigns(&self) -> Vec<TokenStream> {
+    fn gen_from_assigns(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
             .map(
@@ -108,6 +109,19 @@ impl DeriveIntoContext {
                     } else {
                         Ident::new(opts.rename.as_str(), name.span())
                     };
+
+                    if opts.parse {
+                        let struct_name = format!("{}", self.attrs.from);
+
+                        let name_str = format!("{}", name);
+
+                        let convert_class_str: String =
+                            struct_name + &{ name_str[0..1].to_uppercase() } + &name_str[1..];
+                        let convert_class = Ident::new(&convert_class_str, self.name.span());
+                        return quote! {
+                            #name: #convert_class::parse(s.#source_name).0,
+                        };
+                    }
 
                     if opts.unwrap {
                         return quote! {
@@ -151,6 +165,18 @@ impl DeriveIntoContext {
                     } else {
                         Ident::new(opts.rename.as_str(), name.span())
                     };
+
+                    if opts.parse {
+                        let struct_name = format!("{}", self.name);
+                        let name_str = format!("{}", name);
+
+                        let convert_class_str: String =
+                            struct_name + &{ name_str[0..1].to_uppercase() } + &name_str[1..];
+                        let convert_class = Ident::new(&convert_class_str, self.name.span());
+                        return quote! {
+                            #target_name: #convert_class::parse(s.#name).0,
+                        };
+                    }
 
                     if opts.ignore {
                         return quote!();
